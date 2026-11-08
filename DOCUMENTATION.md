@@ -35,7 +35,7 @@ jobs at once:
  │                                                               │
  │  ThreadingHTTPServer  (one thread per browser connection)     │
  └───────────────────────────────▲───────────────────────────────┘
-                                 │  HTTP on --port (default 8080)
+                                 │  HTTP on --port (default 8090)
                       ┌──────────┴──────────┐
                       │  browser on viewer  │  web page (INDEX_HTML)
                       └─────────────────────┘
@@ -57,7 +57,7 @@ the list of controls are read from the camera each time it starts.
 | 208–344 | Camera controls | Parses `v4l2-ctl` output; `V4L2Controls`, `FakeControls` |
 | 347–486 | HTTP server | `make_handler` builds the request handler (routes, stream, snapshot) |
 | 489–625 | Web page | `INDEX_HTML`: the HTML, CSS and JavaScript sent to the browser |
-| 628–708 | CLI | `main()`: command-line arguments, start-up, shutdown |
+| 628–713 | CLI | `main()`: command-line arguments, start-up, shutdown |
 | `Makefile` | Setup | `make setup` and the run targets (section 12) |
 
 ---
@@ -468,7 +468,7 @@ control.
 
 ---
 
-## 8. Command line and start-up: `main()` (lines 632–704)
+## 8. Command line and start-up: `main()` (lines 632–709)
 
 ### 8.1 Arguments
 
@@ -478,7 +478,7 @@ control.
 | `--list` | | List cameras (`v4l2-ctl --list-devices`, or `/dev/video*` if `v4l2-ctl` isn't installed) and exit |
 | `--list-formats` | | Show every format, size and fps the chosen camera supports, then exit |
 | `--host` | `0.0.0.0` | Network interface to listen on. `0.0.0.0` means all of them. Use `127.0.0.1` to allow this machine only. |
-| `-p, --port` | `8080` | TCP port |
+| `-p, --port` | `8090` | TCP port. Not 8080: on the rover's Jetson, the astronaut-streamer dashboard uses 8080. |
 | `--width`, `--height` | Largest the camera offers | Capture size |
 | `--fps` | Camera default | Capture frame rate |
 | `--fourcc` | `MJPG` | Pixel format the camera sends |
@@ -503,14 +503,16 @@ control.
 5. If `--settings` was given, apply the profile, printing any per-control
    problems as warnings.
 6. Create a `ThreadingHTTPServer`, which handles each connection on its own
-   thread. Without threads, one open live stream would block all other
+   thread. If the port is already taken, it exits with a message naming the port
+   and how to find the program using it (`sudo ss -tlnp 'sport = :8090'`),
+   instead of a traceback. Without threads, one open live stream would block all other
    requests. `daemon_threads = True` means open streams don't stop the program
    from exiting.
 7. Print what the camera actually agreed to, and the address to open.
 8. `serve_forever()` until Ctrl+C. Then close the server and release the
    camera (`finally` makes sure this always happens).
 
-Lines 707–708 (`if __name__ == "__main__": main()`) start the program when you
+Lines 712–713 (`if __name__ == "__main__": main()`) start the program when you
 run the file. You can still `import arducam_stream` from another script, for
 example to reuse `parse_v4l2_ctrls`, without starting the server.
 
@@ -580,7 +582,8 @@ one. That's why a handler can keep using a frame after releasing the lock.
 | No controls in the page | Install `v4l-utils` on the camera host. |
 | A control is greyed out | An auto mode is in charge: turn off `auto_exposure` (set Manual Mode), `white_balance_automatic`, `focus_automatic_continuous`, and so on. |
 | Settings reset after unplugging the camera | UVC cameras forget settings when they lose power. Save a profile and pass it with `--settings`. |
-| Can't reach the page from another computer | Check the host's firewall, e.g. `sudo ufw allow 8080/tcp`, and use the host's LAN IP address. |
+| "Cannot listen on port 8090" | Another program is using the port. Find it with `sudo ss -tlnp 'sport = :8090'`, or run on another port: `make run PORT=8091`. |
+| Can't reach the page from another computer | Check the host's firewall, e.g. `sudo ufw allow 8090/tcp`, and use the host's LAN IP address. |
 
 ---
 
@@ -591,10 +594,11 @@ step is its own target, so you can also run them one at a time.
 
 | Target | What it does |
 |---|---|
-| `setup` | Runs `system-deps`, `venv` and `video-group`, in that order |
+| `setup` | Runs `system-deps`, `venv`, `video-group` and `firewall`, in that order |
 | `system-deps` | `sudo apt-get install -y v4l-utils python3-venv python3-pip` |
 | `venv` | Creates `.venv/` and installs `requirements.txt` into it. When it finishes, it writes a marker file, `.venv/.installed`. Make only runs this step again if `requirements.txt` is newer than the marker. |
 | `video-group` | Adds the user to the `video` group unless they are already in it. |
+| `firewall` | If `ufw` is active, runs `sudo ufw allow $(PORT)/tcp` so other machines can reach the page. Otherwise it does nothing. |
 | `run` | `.venv/bin/python arducam_stream.py --camera $(CAMERA) --port $(PORT) $(ARGS)` |
 | `test`, `list`, `formats` | Test pattern, list cameras, list supported resolutions/fps |
 | `clean` | Deletes `.venv/` and `__pycache__/` |
@@ -604,7 +608,7 @@ step is its own target, so you can also run them one at a time.
 and not root.
 
 **Changing the defaults.** Variables set on the command line override them:
-`CAMERA` (default `0`), `PORT` (default `8080`), `ARGS` (extra options for the
+`CAMERA` (default `0`), `PORT` (default `8090`), `ARGS` (extra options for the
 program) and `PYTHON` (the interpreter that creates the venv, default
 `python3`).
 

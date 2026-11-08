@@ -1,7 +1,7 @@
 # Makefile for the Arducam network stream
 #
 #   make setup              install everything (system packages, Python venv, camera permissions)
-#   make run CAMERA=0       start streaming camera 0 on port 8080
+#   make run CAMERA=0       start streaming camera 0 on port 8090
 #   make help               list all targets
 
 PYTHON ?= python3
@@ -10,24 +10,26 @@ PIP    := $(VENV)/bin/pip
 PY     := $(VENV)/bin/python
 
 # Override on the command line, e.g.  make run CAMERA=/dev/video2 PORT=9000 ARGS="--auth me:secret"
+# 8090, not 8080: on the rover Jetson, 8080 is the astronaut-streamer dashboard
+# (billee-hardware-2027). Also in use there: 5000, 5001, 5900, 8443, 8554, 8888, 8889.
 CAMERA ?= 0
-PORT   ?= 8080
+PORT   ?= 8090
 ARGS   ?=
 
 # The real (non-root) user, even when make is run with sudo
 TARGET_USER := $(or $(SUDO_USER),$(USER),$(shell id -un))
 
-.PHONY: help setup system-deps venv video-group run test list formats clean
+.PHONY: help setup system-deps venv video-group firewall run test list formats clean
 
 help:
-	@echo "make setup        Install v4l-utils, create .venv with Python deps, add you to the 'video' group"
+	@echo "make setup        Install v4l-utils, create .venv, add you to the 'video' group, open PORT in ufw"
 	@echo "make run          Stream the camera  (CAMERA=$(CAMERA) PORT=$(PORT) ARGS=...)"
 	@echo "make list         List connected cameras"
 	@echo "make formats      List resolutions/fps supported by CAMERA"
 	@echo "make test         Run with a synthetic test pattern (no camera needed)"
 	@echo "make clean        Remove .venv and caches"
 
-setup: system-deps venv video-group
+setup: system-deps venv video-group firewall
 	@echo ""
 	@echo "Setup complete. Start streaming with:  make run CAMERA=0"
 
@@ -53,6 +55,14 @@ video-group:
 	else \
 		sudo usermod -aG video "$(TARGET_USER)" && \
 		echo "Added $(TARGET_USER) to the 'video' group. Log out and back in (or reboot) for it to take effect."; \
+	fi
+
+# Opens PORT (default 8090) if the ufw firewall is active, so other machines can reach the page.
+firewall:
+	@if command -v ufw >/dev/null 2>&1 && sudo ufw status 2>/dev/null | grep -q "^Status: active"; then \
+		sudo ufw allow $(PORT)/tcp comment arducam-stream && echo "ufw: opened port $(PORT)/tcp."; \
+	else \
+		echo "ufw is not active; no firewall change needed for port $(PORT)."; \
 	fi
 
 run: venv

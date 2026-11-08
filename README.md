@@ -19,12 +19,15 @@ This runs, in order:
    is skipped if you are already in the group. **Log out and back in (or
    reboot) once afterwards** for this to take effect.
 
+4. If the `ufw` firewall is active, opens port 8090 (or `PORT=...`) so other
+   machines can reach the page.
+
 Running `make setup` again is safe; it skips anything already done.
 
 ## Run
 
     make list                                   # find the camera
-    make run                                    # camera 0, largest MJPG size, port 8080
+    make run                                    # camera 0, largest MJPG size, port 8090
     make run CAMERA=/dev/video2 PORT=9000
     make run CAMERA=0 ARGS="--auth me:secret --save-dir snapshots"
     make formats CAMERA=0                       # supported resolutions / fps
@@ -33,9 +36,15 @@ Running `make setup` again is safe; it skips anything already done.
 `ARGS` passes any of the options below to the program. You can also run the
 script directly with the venv's Python:
 
-    .venv/bin/python arducam_stream.py --camera 0 --port 8080
+    .venv/bin/python arducam_stream.py --camera 0 --port 8090
 
-Open `http://<camera-host-ip>:8080/` on the viewing machine.
+Open `http://<camera-host-ip>:8090/` on the viewing machine.
+
+**Why port 8090:** on the rover's Jetson, port 8080 is already used by the
+astronaut-streamer dashboard (in `billee-hardware-2027`). The other ports in
+use there are 5000, 5001 (F´ dashboards), 5900 (spectrometer VNC), 8443, 8554,
+8888, 8889, 9997, and UDP 8189 and 8890 (astronaut-streamer). Avoid those if
+you pick a different port with `PORT=`/`--port`.
 
 Tip: for a name that stays the same after a reboot, use the stable path from
 `ls /dev/v4l/by-id/`, e.g. `--camera /dev/v4l/by-id/usb-Arducam_..-video-index0`.
@@ -74,4 +83,4 @@ Tip: for a name that stays the same after a reboot, use the stable path from
     GET  /api/settings / POST /api/settings   export / import a profile
     POST /api/reset                    all controls to defaults
 
-Example: `curl -o pic.png "http://camera-host:8080/api/snapshot?format=png"`
+Example: `curl -o pic.png "http://camera-host:8090/api/snapshot?format=png"`

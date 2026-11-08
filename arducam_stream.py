@@ -4,9 +4,9 @@ arducam_stream.py - Stream a USB (UVC) Arducam over the network, with
 remote image tuning and snapshot download, all from a web browser.
 
     python3 arducam_stream.py --camera 0
-    python3 arducam_stream.py --camera /dev/video2 --width 1920 --height 1080 --port 8080
+    python3 arducam_stream.py --camera /dev/video2 --width 1920 --height 1080 --port 8090
 
-Then open http://<this-machine-ip>:8080/ on the viewing machine.
+Then open http://<this-machine-ip>:8090/ on the viewing machine.
 
 Camera controls (brightness, contrast, exposure, white balance, gain, ...)
 are discovered from the camera itself with `v4l2-ctl` (package v4l-utils),
@@ -639,7 +639,7 @@ def main():
     p.add_argument("--list-formats", action="store_true",
                    help="list resolutions/frame rates supported by --camera and exit")
     p.add_argument("--host", default="0.0.0.0", help="address to listen on (default all interfaces)")
-    p.add_argument("-p", "--port", type=int, default=8080, help="port to serve on (default 8080)")
+    p.add_argument("-p", "--port", type=int, default=8090, help="port to serve on (default 8090; 8080 is taken by the rover's astronaut-streamer)")
     p.add_argument("--width", type=int,
                    help="capture width (default: the largest size the camera offers)")
     p.add_argument("--height", type=int,
@@ -690,7 +690,12 @@ def main():
             for err in controls.apply(json.load(f)):
                 print("settings:", err, file=sys.stderr)
 
-    server = ThreadingHTTPServer((args.host, args.port), make_handler(cam, controls, args))
+    try:
+        server = ThreadingHTTPServer((args.host, args.port), make_handler(cam, controls, args))
+    except OSError as e:
+        cam.close()
+        sys.exit(f"Cannot listen on port {args.port}: {e.strerror}. Another program is using it "
+                 f"(check with:  sudo ss -tlnp 'sport = :{args.port}'). Pick another with --port.")
     server.daemon_threads = True
     i = cam.info()
     print(f"Camera {i['device']}: {i['width']}x{i['height']} @ {i['fps']} fps ({i['fourcc']})")
