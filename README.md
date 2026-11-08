@@ -1,0 +1,59 @@
+# Arducam network stream (USB UVC cameras)
+
+Streams a USB Arducam to a browser over the network. From the browser you can
+tune the camera's image settings live, then take a full-resolution picture
+that downloads to the viewing computer.
+
+## Setup (on the machine the camera is plugged into, Linux)
+
+    sudo apt install v4l-utils          # provides v4l2-ctl (used for the image controls)
+    pip install -r requirements.txt
+    sudo usermod -aG video $USER        # if you get permission errors; log out/in after
+
+## Run
+
+    python3 arducam_stream.py --list                # find the camera
+    python3 arducam_stream.py --camera 0            # /dev/video0, largest MJPG size, port 8080
+    python3 arducam_stream.py --camera /dev/video2 --port 9000
+    python3 arducam_stream.py --camera 0 --list-formats   # supported resolutions / fps
+
+Open `http://<camera-host-ip>:8080/` on the viewing machine.
+
+Tip: for a name that stays the same after a reboot, use the stable path from
+`ls /dev/v4l/by-id/`, e.g. `--camera /dev/v4l/by-id/usb-Arducam_..-video-index0`.
+
+## Useful options
+
+| Option | Purpose |
+|---|---|
+| `--width/--height/--fps` | Capture mode (default: largest size the camera supports) |
+| `--fourcc YUYV` | Uncompressed (on USB 2.0 only low res/fps is possible) |
+| `--settings file.json` | Apply a saved tuning profile at start-up |
+| `--save-dir DIR` | Also keep each snapshot on the camera host |
+| `--stream-quality N`, `--stream-fps N` | Lower preview bandwidth (snapshots are unaffected) |
+| `--auth user:pass` | Require a password |
+| `--camera test` | Synthetic test pattern, no hardware needed |
+
+## Web UI
+
+- **Image controls**: every control the camera reports (brightness, contrast,
+  saturation, gamma, gain, sharpness, white balance, exposure...), with its real
+  range. Greyed-out controls are inactive because an "auto" mode is on. For
+  example, set `auto_exposure` to *Manual Mode* to unlock `exposure_time_absolute`,
+  and turn off `white_balance_automatic` to unlock `white_balance_temperature`.
+  Click "default N" to restore one control.
+- **Save settings / Load settings**: download or upload the current tuning as
+  JSON, so you can reuse a profile that gives the required look.
+- **Take picture**: grabs a fresh full-resolution frame (PNG, JPEG, TIFF or BMP)
+  and your browser downloads it.
+
+## HTTP API (for scripting)
+
+    GET  /stream                       MJPEG live stream (works in VLC too)
+    GET  /api/snapshot?format=png      download a picture
+    GET  /api/state                    camera info + controls (JSON)
+    POST /api/control  {"name":"brightness","value":10}
+    GET  /api/settings / POST /api/settings   export / import a profile
+    POST /api/reset                    all controls to defaults
+
+Example: `curl -o pic.png "http://camera-host:8080/api/snapshot?format=png"`
