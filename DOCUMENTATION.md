@@ -58,6 +58,7 @@ the list of controls are read from the camera each time it starts.
 | 347–486 | HTTP server | `make_handler` builds the request handler (routes, stream, snapshot) |
 | 489–625 | Web page | `INDEX_HTML`: the HTML, CSS and JavaScript sent to the browser |
 | 628–708 | CLI | `main()`: command-line arguments, start-up, shutdown |
+| `Makefile` | Setup | `make setup` and the run targets (section 12) |
 
 ---
 
@@ -573,10 +574,41 @@ one. That's why a handler can keep using a frame after releasing the lock.
 
 | Symptom | Cause / fix |
 |---|---|
-| "Could not open camera" | Wrong index (run `--list`), the camera is in use by another program, or you lack permission: `sudo usermod -aG video $USER`, then log out and back in. |
+| "Could not open camera" | Wrong index (run `--list`), the camera is in use by another program, or you lack permission: run `make setup` (or `sudo usermod -aG video $USER`), then log out and back in. |
 | Two `/dev/video` entries for one camera | UVC cameras often create a second "metadata" node. Use the first, or the `video-index0` by-id link. |
 | Low fps at high resolution | Make sure the header shows `MJPG`. Check what's available with `--list-formats`. |
 | No controls in the page | Install `v4l-utils` on the camera host. |
 | A control is greyed out | An auto mode is in charge: turn off `auto_exposure` (set Manual Mode), `white_balance_automatic`, `focus_automatic_continuous`, and so on. |
 | Settings reset after unplugging the camera | UVC cameras forget settings when they lose power. Save a profile and pass it with `--settings`. |
 | Can't reach the page from another computer | Check the host's firewall, e.g. `sudo ufw allow 8080/tcp`, and use the host's LAN IP address. |
+
+---
+
+## 12. The Makefile
+
+`make setup` installs everything the program needs on the camera host. Each
+step is its own target, so you can also run them one at a time.
+
+| Target | What it does |
+|---|---|
+| `setup` | Runs `system-deps`, `venv` and `video-group`, in that order |
+| `system-deps` | `sudo apt-get install -y v4l-utils python3-venv python3-pip` |
+| `venv` | Creates `.venv/` and installs `requirements.txt` into it. When it finishes, it writes a marker file, `.venv/.installed`. Make only runs this step again if `requirements.txt` is newer than the marker. |
+| `video-group` | Adds the user to the `video` group unless they are already in it. |
+| `run` | `.venv/bin/python arducam_stream.py --camera $(CAMERA) --port $(PORT) $(ARGS)` |
+| `test`, `list`, `formats` | Test pattern, list cameras, list supported resolutions/fps |
+| `clean` | Deletes `.venv/` and `__pycache__/` |
+
+**Choosing the user for `video-group`.** The user is `SUDO_USER` if set, then
+`USER`, then the output of `id -un`. This way, even `sudo make setup` adds you
+and not root.
+
+**Changing the defaults.** Variables set on the command line override them:
+`CAMERA` (default `0`), `PORT` (default `8080`), `ARGS` (extra options for the
+program) and `PYTHON` (the interpreter that creates the venv, default
+`python3`).
+
+**Why `opencv-python-headless`.** `requirements.txt` uses the "headless"
+build of OpenCV, which leaves out the desktop window code. The program never
+opens a window, and the headless build avoids missing-library errors such as
+`libGL.so.1` on servers and Raspberry Pis that have no desktop installed.

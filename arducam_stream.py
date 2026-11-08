@@ -32,7 +32,7 @@ try:
     import cv2
     import numpy as np
 except ImportError:
-    sys.exit("OpenCV is required:  pip install opencv-python numpy")
+    sys.exit("OpenCV is required: run  make setup  (or: pip install opencv-python-headless numpy)")
 
 
 # --------------------------------------------------------------------------
@@ -259,7 +259,7 @@ class V4L2Controls:
         self.lock = threading.Lock()
         if not shutil.which("v4l2-ctl"):
             print("WARNING: v4l2-ctl not found; image tuning disabled. "
-                  "Install it with:  sudo apt install v4l-utils", file=sys.stderr)
+                  "Install it with:  make setup  (or: sudo apt install v4l-utils)", file=sys.stderr)
             self.available = False
         else:
             self.available = True

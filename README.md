@@ -6,16 +6,34 @@ that downloads to the viewing computer.
 
 ## Setup (on the machine the camera is plugged into, Linux)
 
-    sudo apt install v4l-utils          # provides v4l2-ctl (used for the image controls)
-    pip install -r requirements.txt
-    sudo usermod -aG video $USER        # if you get permission errors; log out/in after
+    make setup
+
+This runs, in order:
+
+1. `sudo apt-get install -y v4l-utils python3-venv python3-pip`. `v4l-utils`
+   provides `v4l2-ctl`, which the image controls use.
+2. Creates a virtual environment in `.venv/` and installs `requirements.txt`
+   into it. Recent Debian, Ubuntu and Raspberry Pi OS block system-wide
+   `pip install`, so the packages go there instead.
+3. `sudo usermod -aG video <you>`, so you can use the camera without sudo. It
+   is skipped if you are already in the group. **Log out and back in (or
+   reboot) once afterwards** for this to take effect.
+
+Running `make setup` again is safe; it skips anything already done.
 
 ## Run
 
-    python3 arducam_stream.py --list                # find the camera
-    python3 arducam_stream.py --camera 0            # /dev/video0, largest MJPG size, port 8080
-    python3 arducam_stream.py --camera /dev/video2 --port 9000
-    python3 arducam_stream.py --camera 0 --list-formats   # supported resolutions / fps
+    make list                                   # find the camera
+    make run                                    # camera 0, largest MJPG size, port 8080
+    make run CAMERA=/dev/video2 PORT=9000
+    make run CAMERA=0 ARGS="--auth me:secret --save-dir snapshots"
+    make formats CAMERA=0                       # supported resolutions / fps
+    make test                                   # test pattern, no camera needed
+
+`ARGS` passes any of the options below to the program. You can also run the
+script directly with the venv's Python:
+
+    .venv/bin/python arducam_stream.py --camera 0 --port 8080
 
 Open `http://<camera-host-ip>:8080/` on the viewing machine.
 
