@@ -1,7 +1,7 @@
 # Makefile for the Arducam network stream
 #
 #   make setup              install everything (system packages, Python venv, camera permissions)
-#   make run CAMERA=0       start streaming camera 0 on port 8090
+#   make run                stream the Arducam (by-id path, currently /dev/video4) on port 8090
 #   make help               list all targets
 
 PYTHON ?= python3
@@ -12,7 +12,9 @@ PY     := $(VENV)/bin/python
 # Override on the command line, e.g.  make run CAMERA=/dev/video2 PORT=9000 ARGS="--auth me:secret"
 # 8090, not 8080: on the rover Jetson, 8080 is the astronaut-streamer dashboard
 # (billee-hardware-2027). Also in use there: 5000, 5001, 5900, 8443, 8554, 8888, 8889.
-CAMERA ?= 0
+# Default to the Arducam's stable by-id path. On the rover Jetson /dev/video0-3 are the
+# IMX477 CSI cameras and the Arducam enumerates as /dev/video4 (number can shift on replug).
+CAMERA ?= /dev/v4l/by-id/usb-Arducam_Arducam_5MP_Camera_Module_YL20230518V0-video-index0
 PORT   ?= 8090
 ARGS   ?=
 
@@ -31,7 +33,7 @@ help:
 
 setup: system-deps venv video-group firewall
 	@echo ""
-	@echo "Setup complete. Start streaming with:  make run CAMERA=0"
+	@echo "Setup complete. Start streaming with:  make run"
 
 # v4l-utils provides v4l2-ctl (used for the image controls).
 # python3-venv is needed because recent Debian/Ubuntu/Raspberry Pi OS block

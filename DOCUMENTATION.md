@@ -608,7 +608,7 @@ step is its own target, so you can also run them one at a time.
 and not root.
 
 **Changing the defaults.** Variables set on the command line override them:
-`CAMERA` (default `0`), `PORT` (default `8090`), `ARGS` (extra options for the
+`CAMERA` (default: the Arducam's `/dev/v4l/by-id/...-video-index0` link, i.e. `/dev/video4` on the rover), `PORT` (default `8090`), `ARGS` (extra options for the
 program) and `PYTHON` (the interpreter that creates the venv, default
 `python3`).
 
